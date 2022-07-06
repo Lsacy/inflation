@@ -30,6 +30,8 @@ averaged_data <- worldbank_data%>%
   group_by(iso2c, country, Indicator)%>%
   summarise(Values=mean(Values,na.rm=T))
 
+
+
 current_data <- worldbank_data %>% 
   filter(year==2000)
 
@@ -147,17 +149,20 @@ wide_data %>%
        y = 'Interest Rate')
 
 # inflation vs unemployment?
-western <- wide_data %>% 
-  filter(continent == 'Europe' | continent =='North America')
+ger_usa <- worldbank_data %>% 
+  filter(country == 'Germany' | country == 'United States' )
 
-western %>% 
+ger_usa_wide <- ger_usa %>% 
+  pivot_wider(names_from = Indicator, values_from = Values)
+
+ger_usa_wide %>% 
   ggplot(aes(x = (Unemployment), 
              y = (Inflation),
-             size= Population,
+             color= country,
   )) +
   geom_point(alpha=0.3)+
   geom_smooth(method=lm, se=F)+
   #facet_wrap(~continent)+
-  labs(title='Inflation and unemployment',
+  labs(title='Inflation and unemployment for US and Germany 2000-2020',
        x = 'Unemployment rate',
        y = 'Inflation')
