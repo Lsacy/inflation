@@ -1,0 +1,207 @@
+---
+title: "GDP in context with social economic indices "
+output: html_notebook
+---
+
+Economic indicators - such as GDP and GDP per capita, not only show a country’s economic performance as a whole as well as on an individual level. They are also strongly correlated with other important figures e.g., life expectancy, personal well-being and, to a lesser degree, with one's happiness. In the following diagrams we will be showing the correlation between GDP / GDP per capita and before mentioned social economic indices. 
+
+```{r, eval = FALSE}
+# load the required libraries and datasets
+library(reticulate)
+library("sf")
+library("rnaturalearth")
+library("rnaturalearthdata")
+library(tidyverse)
+library(countrycode)
+library(plotly)
+library(broom)
+library(purrr)
+library(ggthemes)
+library(countrycode)
+
+data("World")
+load("worldbankindicators.RData")
+```
+
+
+```{r, eval = FALSE}
+# manipulate the data sets for further usage
+World$iso2c=countrycode(sourcevar = World$iso_a3,
+                        origin = "iso3c",
+                        destination = "iso2c")
+
+averaged_data <- worldbank_data%>%
+  group_by(iso2c, country, Indicator)%>%
+  summarise(Values=mean(Values,na.rm=T))
+
+current_data <- worldbank_data %>% 
+  filter(year==2000)
+
+joined_data <- World%>%left_join(current_data, by='iso2c')
+
+inflation <- filter(joined_data, Indicator=='Inflation')
+unemployment <- filter(joined_data, Indicator =='Unemployment')
+```
+
+- life expectancy compared to GDP per capita for all countries
+
+```{r, eval = FALSE}
+
+
+joined_data %>% 
+  filter(continent %in% c('Asia', 'Africa', 'Europe', 'South America', 'Oceania', 'North America')) %>% 
+  ggplot(aes(x = (gdp_cap_est), 
+             y = (life_exp),
+             size= pop_est,
+             )) +
+  geom_point(alpha=0.1)+
+  xlim(0,90000) +
+  geom_smooth(se=F)+
+  #facet_wrap(~continent)+
+  labs(title='Life expectancy explained by GDP',
+       x = 'GDP per capita',
+       y = 'Life expectancy',
+       colour = 'continent')
+
+```
+
+
+```{r, eval = FALSE}
+# life expectancy vs GDP per capita for each continent
+joined_data %>% 
+  filter(continent %in% c('Asia', 'Africa', 'Europe', 'South America', 'Oceania', 'North America')) %>% 
+  ggplot(aes(x = (gdp_cap_est), 
+             y = (life_exp),
+             size= pop_est,
+             color=continent
+  )) +
+  geom_point(alpha = 0.1)+
+  xlim(0,65000) +
+  geom_smooth(method=lm, se=F)+
+  facet_wrap(~continent)+
+  labs(title='Life expectancy and GDP per capita',
+       x = 'GDP per capita',
+       y = 'Life expectancy',
+       colour = 'continent')
+
+```
+
+
+Well-being is defined as what is ultimately good for a single individual, it is in the self-interest of the individual. The well-being index is developed by Mayo Clinic as an anonymous tool to allow participants to assess one’s well-being on various dimensions including ‘quality of life’, ‘meaning of work’, ‘likelihood of burnout, ‘suicidal ideation’ and more. 
+
+HPI - The happy planet index consists of human well-being and its environmental impact. It can be described as an average of subjective life satisfaction, life expectancy at birth and ecological footprint per capita. In contrast to GDP and HDI （Human development index) it takes sustainability into account. 
+
+```{r}
+# HPI vs GDP per capita for each continent
+joined_data %>% 
+  filter(continent %in% c('Asia', 'Africa', 'Europe', 'South America', 'Oceania', 'North America')) %>% 
+  ggplot(aes(x = log(gdp_cap_est), 
+             y = HPI,
+             size= pop_est,
+             color=continent
+  )) +
+  geom_point(alpha = 0.1)+
+  facet_wrap(~continent)+
+  labs(title='Happiness and GDP per capita',
+       x = 'log (GDP per capita)',
+       y = 'Happiness Index',
+       colour = 'continent')
+
+```
+
+
+```{r}
+# Happiness vs Inequality for all countries
+joined_data %>% 
+  filter(continent %in% c('Asia', 'Africa', 'Europe', 'South America', 'Oceania', 'North America')) %>% 
+  ggplot(aes(x = inequality, 
+             y = HPI,
+             size= pop_est,
+             color=pop_est_dens
+  )) +
+  geom_point(alpha = 0.1)+
+  geom_smooth(method=lm, se=F)+
+  labs(title='Happiness and Inequality',
+       x = 'Inequality',
+       y = 'Happiness Index')
+
+```
+
+
+```{r}
+# Life Expectancy And Happiness
+joined_data %>% 
+  filter(continent %in% c('Asia', 'Africa', 'Europe', 'South America', 'Oceania', 'North America')) %>% 
+  ggplot(aes(x = life_exp, 
+             y = HPI,
+             size= pop_est,
+             color=pop_est_dens
+  )) +
+  geom_point(alpha = 0.1)+
+  geom_smooth(method=lm, se=F)+
+  labs(title='Happiness and Life Expectancy',
+       x = 'Life Expectancy',
+       y = 'Happiness Index')
+
+```
+
+
+```{r}
+# plotting inflation of year 2020
+ggplot(data = inflation) +
+  geom_sf(aes(fill=Values)) +
+  colorspace::scale_fill_continuous_sequential(palette='viridis') +
+  labs(caption= 'Inflation Map 2020')
+
+```
+
+
+```{r}
+# reshape long to wide 
+columns <- c('iso_a3', 'country', 'Indicator', 'Values', 'continent')
+filtered <- joined_data[columns] %>% 
+  st_drop_geometry()
+
+filtered %>% 
+  mutate(Indicator = as.factor(Indicator))
+
+wide_data <- filtered %>% 
+  pivot_wider(names_from = Indicator, values_from = Values) 
+
+# inflation vs interest rate
+wide_data %>% 
+  ggplot(aes(y = log(Inflation), 
+             x = `Interest Rate`,
+             size= GDP,
+  )) +
+  geom_point(alpha=0.3)+
+  geom_smooth(method=lm, se=F)+
+  #facet_wrap(~continent)+
+  labs(title='Inflation and Interest rate',
+       x = 'log(Inflation)',
+       y = 'Interest Rate')
+
+```
+
+
+```{r}
+# inflation vs unemployment?
+ger_usa <- worldbank_data %>% 
+  filter(country == 'Germany' | country == 'United States' )
+
+ger_usa_wide <- ger_usa %>% 
+  pivot_wider(names_from = Indicator, values_from = Values)
+
+ger_usa_wide %>% 
+  ggplot(aes(x = (Unemployment), 
+             y = (Inflation),
+             color= country,
+  )) +
+  geom_point(alpha=0.3)+
+  geom_smooth(method=lm, se=F)+
+  #facet_wrap(~continent)+
+  labs(title='Inflation and unemployment for US and Germany 2000-2020',
+       x = 'Unemployment rate',
+       y = 'Inflation')
+
+```
